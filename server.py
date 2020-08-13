@@ -1,11 +1,10 @@
-#!/usr/bin/env python3
 from flask import Flask, request, jsonify, render_template
 from flask_compress import Compress
 from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 from pymongo import MongoClient
+import base64
 import bcrypt
-# import uuid
 import os
 import secrets
 from datetime import datetime
@@ -23,6 +22,7 @@ client = MongoClient()
 db = client.cloud_copy
 users = db.users
 tokens = db.tokens
+
 # user structure
 sample_user = {'email': 'cool_guy123@cool_domain.com',
                'devices': {'MAC': {'token': 'some-token',
@@ -42,6 +42,10 @@ def check_password(plain_text_password: str, hashed_password):
 
 
 @app.errorhandler(404)
+def page_not_found(_):
+    return render_template('home.html'), 404
+
+
 @app.route('/')
 def home():
     return render_template('home.html')
@@ -70,8 +74,6 @@ def authenticate():
             tokens.insert_one({'token': new_token, 'email': email, 'created': datetime.today()})
             new_user = {'email': email, 'password': hashed_password, 'tokens': [new_token]}
             users.insert_one(new_user)
-            # TODO: send an email to welcome user to Cloud Copy upon sign up
-            # TODO: in 0.1.3a send {'token': new_token, 'key': create_key(password)}
             return new_token
         else:  # user does exist
             if check_password(password, user['password']):
@@ -81,7 +83,6 @@ def authenticate():
                 tokens.insert_one({'token': new_token, 'email': email, 'created': datetime.today()})
                 user_tokens = user['tokens'] + [new_token]
                 users.update_one({'email': email}, {'$set': {'tokens': user_tokens}})
-                # TODO: in 0.1.3a send {'token': new_token, 'key': create_key(password)}
                 return new_token
     return 'false'
 
